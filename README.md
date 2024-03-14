@@ -1,5 +1,3 @@
-# README.md
-
 Assume you have two functions: $f(y)$ and $g(x)$ such that $f(g(x)) = x$, i.e., $g$ is the right inverse to $f$.
 The [inverse function theorem](https://en.wikipedia.org/wiki/Inverse_function_theorem) allows us to compute the Jacobian for any of them as long as we know the Jacobian for its counterpart.
 This is useful when $g(x)$ is a function you can't quickly explicitly write down (it's no coincidence that the [implicit function theorem}(https://en.wikipedia.org/wiki/Implicit_function_theorem) can be used to prove the inverse function theorem and vice versa).
