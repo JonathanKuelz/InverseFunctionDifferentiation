@@ -55,7 +55,49 @@ class ImplicitDifferentiation(unittest.TestCase):
             'two_angles': 2,
         }
 
+        for name, inv in inverse.items():
+            # Start with the most natural use case
+            x = torch.rand((b, num_args[name]), requires_grad=True)
+            y_with_grad = implicit_inverse_layer(x, inv, forward_func=forward[name])
+            gradients_implicit = torch.autograd.grad(self.loss(y_with_grad), x)[0]
+
+            # Ground truth gradients, computed with autograd (which is not possible in a real world application)
+            y_autograd = inv(x)
+            gradients_gt = torch.autograd.grad(self.loss(y_autograd), x)[0]
+
+            self.assertTrue(torch.allclose(gradients_gt, gradients_implicit, atol=self.atol, rtol=self.rtol))
+
         for name, fw in forward.items():
+            # Make sure it works the other way around as well
+            x = torch.rand((b, num_args[name]), requires_grad=True)
+            y_with_grad = implicit_inverse_layer(x, fw, forward_func=inverse[name])
+            gradients_implicit = torch.autograd.grad(self.loss(y_with_grad), x)[0]
+
+            # Ground truth gradients, computed with autograd (which is not possible in a real world application)
+            y_autograd = fw(x)
+            gradients_gt = torch.autograd.grad(self.loss(y_autograd), x)[0]
+
+            self.assertTrue(torch.allclose(gradients_gt, gradients_implicit, atol=self.atol, rtol=self.rtol))
+
+        for name, inv in inverse.items():
+            # Test the use case where a Jacobian is provided externally
+            x = torch.rand((b, num_args[name]), requires_grad=True)
+
+            with torch.no_grad():
+                y = inv(x)
+
+            J = batch_jacobian(forward[name], y)
+            y_with_grad = implicit_inverse_layer(x, inv, forward_jacobian=J)
+            gradients_implicit = torch.autograd.grad(self.loss(y_with_grad), x)[0]
+
+            # Ground truth gradients, computed with autograd (which is not possible in a real world application)
+            y_autograd = inv(x)
+            gradients_gt = torch.autograd.grad(self.loss(y_autograd), x)[0]
+
+            self.assertTrue(torch.allclose(gradients_gt, gradients_implicit, atol=self.atol, rtol=self.rtol))
+
+        for name, fw in forward.items():
+            # Test that the functions are actually inverses of each other
             x = torch.rand((b, num_args[name]), requires_grad=True)
             y_forward = fw(x)
             forward_jacobian = batch_jacobian(fw, x)
@@ -68,7 +110,7 @@ class ImplicitDifferentiation(unittest.TestCase):
             gradients_gt = torch.autograd.grad(self.loss(y_inv), y_forward)[0]
 
             # Now compute the same gradients, but using the implicit differentiation layer with a custom backward pass
-            y_inv_implicit = implicit_inverse_layer(y_forward, inv, forward_jacobian)
+            y_inv_implicit = implicit_inverse_layer(y_forward, inv, forward_jacobian=forward_jacobian)
             gradients_implicit = torch.autograd.grad(self.loss(y_inv_implicit), y_forward)[0]
             self.assertTrue(torch.allclose(gradients_gt, gradients_implicit, atol=self.atol, rtol=self.rtol))
 

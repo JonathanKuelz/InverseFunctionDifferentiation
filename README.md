@@ -1,47 +1,52 @@
 # README.md
 
 Assume you have two functions: $f(y)$ and $g(x)$ such that $f(g(x)) = x$, i.e., $g$ is the right inverse to $f$.
-The [inverse function theorem](https://en.wikipedia.org/wiki/Inverse_function_theorem) allows us to compute the Jacobian and/or gradient of $g$.
-This is useful when $g(x)$ is a function you can't easily explicitly write down (it's no coincidence that the [implicit function theorem}(https://en.wikipedia.org/wiki/Implicit_function_theorem) can be used to proof the inverse function theorem and vice versa).
+The [inverse function theorem](https://en.wikipedia.org/wiki/Inverse_function_theorem) allows us to compute the Jacobian for any of them as long as we know the Jacobian for its counterpart.
+This is useful when $g(x)$ is a function you can't quickly explicitly write down (it's no coincidence that the [implicit function theorem}(https://en.wikipedia.org/wiki/Implicit_function_theorem) can be used to prove the inverse function theorem and vice versa).
 It's also useful when you have an implementation of $g(x)$ that you don't want to or can't implement in torch.
 
-Anyways, you end up wanting to compute the gradient of $g(x)$ and you can't do so using autograd.
-As long as you have a differentiable version of it's left inverse $f(x)$, the functionalities provided in this repository can help you out!
-It implements a custom functional that wraps $g(x)$ and computes its gradient following the inverse function theorem.
+## TL;DR
+1. You have a function $g$ that you want to differentiate and autograd is not an option.
+2. You do have a differentiable version of its inverse function $f$.
+3. Then you can use the utilities provided in this repository to differentiate $g$.
 
 
 ## Differentiate a function by differentiating its inverse!
 
-This repository contains two Python files:
+The classes `ImplicitInverseLayer` and `ImplicitInverseLayerAuto` extend PyTorch's `Function` class. They implements a custom backward pass with gradients computed using the inverse function theorem.
+The function `implicit_inverse_layer` provides a wrapper around them, allowing for a more convenient usage.
 
-1. `inverse_differentiation_layer.py`
-2. `test_implicit_differentiation.py`
 
-### `inverse_differentiation_layer.py`
+## Example
 
-This file contains an implementation to different. It includes a class `ImplicitInverseLayer` that extends PyTorch's `Function` class. This class is used to implement a custom backward pass for $g(x)§ which is the inverse of some $f(y)$. The gradients for the backward pass are computed using the inverse function theorem.
+```python
+import torch
+from inverse_differentiation_layer import implicit_inverse_layer
 
-The file also contains a function `batch_jacobian` that computes the Jacobian of a function with respect to its inputs, assuming that the first dimension is a batch dimension. This function is used to compute the Jacobian of the forward function in the `ImplicitInverseLayer` class.
+data = torch.rand((batch_size, 5), requires_grad=True)
 
-Finally, the file contains a function `implicit_inverse_layer` that is a wrapper around the `ImplicitInverseLayer` class, allowing for a more convenient usage.
+def g(x):
+  """g is the inverse to f, but you can't get the gradients with autograd"""
+  with torch.no_grad():  # a more realistic example would be if this was calculated with another library, e.g., numpy
+    return torch.asin(x)
 
-### `test_implicit_differentiation.py`
-
-This file contains tests for the `ImplicitInverseLayer` class and the `batch_jacobian` function implemented in `custom_gradients.py`. The tests ensure that the custom gradients and the Jacobian computation are working correctly.
+y = implicit_inverse_layer(data, g, forward_func=torch.sin)
+print(torch.autograd.grad(torch.sum(y), y)[0])  # Gradients are available, even though g cannot be differentiated with autograd
+```
 
 ## Installation
 
-To use the code in this repository, you need to have Python and PyTorch installed. You can install PyTorch using pip:
+To use the code in this repository, you must install Python and PyTorch. You can install PyTorch using pip:
 
 ```bash
 pip install torch
 ```
 
-After that, just use the `implicit_inverse_layer` function as you would use any other torch function.
+After that, use the `implicit_inverse_layer` function as you would use any other torch function.
 
 ## Testing
 
-To run the tests in `test_implicit_differentiation.py`, you can use a test runner like pytest:
+To run the tests in `test_implicit_differentiation.py,` you can use a test runner like pytest:
 
 ```bash
 pytest test_implicit_differentiation.py
